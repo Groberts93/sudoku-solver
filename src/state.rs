@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Display};
 
 #[derive(Debug)]
 pub struct State {
@@ -37,5 +37,40 @@ impl GridCell {
         GridCell {
             state: HashSet::from_iter(n..=n),
         }
+    }
+
+    fn insert(&mut self, n: u8) -> bool {
+        self.state.insert(n)
+    }
+}
+
+impl Display for GridCell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut out = vec![];
+        for ii in 1..=9 {
+            let str = match self.state.get(&ii) {
+                Some(i) => i.to_string(),
+                None => "·".to_string(),
+            };
+            out.push(format!("{} ", str));
+            if ii % 3 == 0 {
+                out.push("\n".to_string());
+            }
+        }
+
+        let out: String = out.into_iter().collect();
+        write!(f, "{}", out)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::state::GridCell;
+
+    #[test]
+    fn can_display_gridcell() {
+        let mut gridcell = GridCell::new_collapsed(5);
+        gridcell.insert(2);
+        println!("{gridcell}");
     }
 }
