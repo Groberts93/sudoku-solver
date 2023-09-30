@@ -21,7 +21,7 @@ impl From<&str> for State {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct GridCell {
     state: HashSet<u8>,
 }
@@ -39,8 +39,12 @@ impl GridCell {
         }
     }
 
-    fn insert(&mut self, n: u8) -> bool {
+    fn allow(&mut self, n: u8) -> bool {
         self.state.insert(n)
+    }
+
+    fn deny(&mut self, n: u8) -> bool {
+        self.state.remove(&n)
     }
 }
 
@@ -63,6 +67,14 @@ impl Display for GridCell {
     }
 }
 
+impl From<Vec<u8>> for GridCell {
+    fn from(value: Vec<u8>) -> Self {
+        GridCell {
+            state: HashSet::from_iter(value.into_iter()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::state::GridCell;
@@ -70,7 +82,16 @@ mod test {
     #[test]
     fn can_display_gridcell() {
         let mut gridcell = GridCell::new_collapsed(5);
-        gridcell.insert(2);
+        gridcell.allow(2);
         println!("{gridcell}");
+    }
+
+    #[test]
+    fn can_alter_gridcell() {
+        let mut gridcell = GridCell::new_collapsed(7);
+        gridcell.allow(6);
+        gridcell.allow(8);
+        gridcell.deny(6);
+        assert_eq!(gridcell, GridCell::from(vec![7, 8]));
     }
 }
