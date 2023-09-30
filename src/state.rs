@@ -25,6 +25,10 @@ impl State {
     fn total_entropy(&self) -> u32 {
         self.cells.iter().map(|x| x.entropy() as u32).sum()
     }
+
+    fn iter_row(&self, row: usize) -> impl Iterator<Item = &GridCell> {
+        self.cells.iter().skip(row * 9).take(9)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -91,13 +95,6 @@ mod test {
     use crate::state::State;
 
     #[test]
-    fn can_display_gridcell() {
-        let mut gridcell = GridCell::new_collapsed(5);
-        gridcell.allow(2);
-        println!("{gridcell}");
-    }
-
-    #[test]
     fn can_alter_gridcell() {
         let mut gridcell = GridCell::new_collapsed(7);
         gridcell.allow(6);
@@ -127,5 +124,17 @@ mod test {
             "000030007480960501063570820009610203350097006000005094000000005804706910001040070",
         );
         assert_eq!(state.total_entropy(), 433);
+    }
+    
+    #[test]
+    fn can_iter_row() {
+        let state = State::from(
+            "301086504046521070500000001400800002080347900009050038004090200008734090007208103",
+        );
+        let mut iter = state.iter_row(8);
+        for _ in 0..=8 {
+            println!("{}", iter.next().unwrap()); 
+        }
+        
     }
 }
