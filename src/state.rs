@@ -21,6 +21,12 @@ impl From<&str> for State {
     }
 }
 
+impl State {
+    fn total_entropy(&self) -> u32 {
+        self.cells.iter().map(|x| x.entropy() as u32).sum()
+    }
+}
+
 #[derive(Debug, PartialEq)]
 struct GridCell {
     state: HashSet<u8>,
@@ -45,6 +51,10 @@ impl GridCell {
 
     fn deny(&mut self, n: u8) -> bool {
         self.state.remove(&n)
+    }
+
+    fn entropy(&self) -> u8 {
+        self.state.len() as u8
     }
 }
 
@@ -78,6 +88,7 @@ impl From<Vec<u8>> for GridCell {
 #[cfg(test)]
 mod test {
     use crate::state::GridCell;
+    use crate::state::State;
 
     #[test]
     fn can_display_gridcell() {
@@ -93,5 +104,28 @@ mod test {
         gridcell.allow(8);
         gridcell.deny(6);
         assert_eq!(gridcell, GridCell::from(vec![7, 8]));
+    }
+
+    #[test]
+    fn can_compute_entropy() {
+        let mut gridcell = GridCell::new_collapsed(3);
+        gridcell.allow(6);
+        assert_eq!(gridcell.entropy(), 2);
+        gridcell.allow(7);
+        assert_eq!(gridcell.entropy(), 3);
+        gridcell.deny(3);
+        assert_eq!(gridcell.entropy(), 2);
+    }
+
+    #[test]
+    fn can_compute_total_entropy() {
+        let state = State::from(
+            "301086504046521070500000001400800002080347900009050038004090200008734090007208103",
+        );
+        assert_eq!(state.total_entropy(), 417);
+        let state = State::from(
+            "000030007480960501063570820009610203350097006000005094000000005804706910001040070",
+        );
+        assert_eq!(state.total_entropy(), 433);
     }
 }
