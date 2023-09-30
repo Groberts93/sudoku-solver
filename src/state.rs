@@ -29,6 +29,28 @@ impl State {
     fn iter_row(&self, row: usize) -> impl Iterator<Item = &GridCell> {
         self.cells.iter().skip(row * 9).take(9)
     }
+
+    fn iter_col(&self, col: usize) -> impl Iterator<Item = &GridCell> {
+        self.cells.iter().skip(col).step_by(9)
+    }
+
+    fn iter_block(&self, block: usize) -> impl Iterator<Item = &GridCell> {
+        let (row_skip, column_skip) = (block / 3, block % 3);
+
+        let mut inds = vec![];
+        let mut out = vec![];
+        let mut start = row_skip * 3 * 9 + column_skip * 3;
+
+        for _ in 0..3 {
+            for ii in start..start + 3 {
+                inds.push(ii);
+                out.push(self.cells.get(ii).unwrap());
+            }
+            start = start + 9;
+        }
+
+        out.into_iter()
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -125,16 +147,55 @@ mod test {
         );
         assert_eq!(state.total_entropy(), 433);
     }
-    
+
     #[test]
     fn can_iter_row() {
         let state = State::from(
             "301086504046521070500000001400800002080347900009050038004090200008734090007208103",
         );
         let mut iter = state.iter_row(8);
+        // for _ in 0..=8 {
+        //     println!("{}", iter.next().unwrap());
+        // }
+    }
+
+    #[test]
+    fn can_iter_col() {
+        let state = State::from(
+            "301086504046521070500000001400800002080347900009050038004090200008734090007208103",
+        );
+        let mut iter = state.iter_col(1);
         for _ in 0..=8 {
-            println!("{}", iter.next().unwrap()); 
+            // println!("{}", iter.next().unwrap());
         }
-        
+    }
+
+    #[test]
+    fn can_iter_block() {
+        //     "
+        //     301 086 504
+        //     046 521 070
+        //     500 000 001
+
+        //     400 800 002
+        //     080 347 900
+        //     009 050 038
+
+        //     004 090 200
+        //     008 734 090
+        //     007 208 103",
+
+        let state = State::from(
+            "301086504046521070500000001400800002080347900009050038004090200008734090007208103",
+        );
+
+        let mut iter = state.iter_block(2);
+
+        assert_eq!(*iter.next().unwrap(), GridCell::new_collapsed(5));
+        assert_eq!(*iter.next().unwrap(), GridCell::new());
+        assert_eq!(*iter.next().unwrap(), GridCell::new_collapsed(4));
+        assert_eq!(*iter.next().unwrap(), GridCell::new());
+        assert_eq!(*iter.next().unwrap(), GridCell::new_collapsed(7));
+        assert_eq!(*iter.next().unwrap(), GridCell::new());
     }
 }
