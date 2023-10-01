@@ -51,6 +51,18 @@ impl State {
 
         out.into_iter()
     }
+
+    pub fn solve(&mut self) {
+        todo!()
+    }
+
+    fn propagate_constraints(&mut self) {
+        todo!()
+    }
+
+    fn find_fully_constrained_cells(&self) -> Vec<&GridCell> {
+        self.cells.iter().filter(|&x| x.entropy() == 1).collect()
+    }
 }
 
 #[derive(Debug, PartialEq)]
