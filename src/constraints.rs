@@ -1,7 +1,7 @@
-use csv::{ByteRecord, ReaderBuilder};
+use csv::ReaderBuilder;
 
 pub struct Constraints {
-    inds: Vec<Vec<u8>>,
+    inds: Vec<Vec<usize>>,
 }
 
 impl Constraints {
@@ -10,12 +10,12 @@ impl Constraints {
             .has_headers(false)
             .from_reader(include_bytes!("../assets/constraints.csv").as_slice());
 
-        let records: Vec<Vec<u8>> = reader
+        let records: Vec<Vec<usize>> = reader
             .into_records()
             .map(|x| {
                 x.expect("should be static csv")
                     .into_iter()
-                    .map(|y| y.parse::<u8>().expect("should be decodable as u8"))
+                    .map(|y| y.parse::<usize>().expect("should be decodable as u8"))
                     .collect()
             })
             .collect();
@@ -23,8 +23,8 @@ impl Constraints {
         Constraints { inds: records }
     }
 
-    pub fn get_constrained_inds(&self, ind: u8) -> &[u8] {
-        self.inds[ind as usize].as_slice()
+    pub fn get_constrained_inds(&self, ind: usize) -> &[usize] {
+        self.inds[ind].as_slice()
     }
 }
 
