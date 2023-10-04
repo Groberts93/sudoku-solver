@@ -1,5 +1,6 @@
 use csv::ReaderBuilder;
 
+#[derive(Debug)]
 pub struct Constraints {
     inds: Vec<Vec<usize>>,
 }

@@ -1,8 +1,18 @@
-use std::{collections::HashSet, fmt::Display};
+use crate::constraints::Constraints;
+use anyhow::{anyhow, Result};
+use std::{collections::HashSet, error::Error, fmt::Display};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+enum ConstraintError {
+    #[error("cell at index {0} is already fully constrained as {1}")]
+    Conflict(usize, u8),
+}
 
 #[derive(Debug)]
 pub struct State {
     cells: Vec<GridCell>,
+    constraints: Constraints,
 }
 
 impl From<&str> for State {
@@ -17,7 +27,10 @@ impl From<&str> for State {
             }
         }
 
-        State { cells: cells }
+        State {
+            cells: cells,
+            constraints: Constraints::new(),
+        }
     }
 }
 
@@ -52,16 +65,52 @@ impl State {
         out.into_iter()
     }
 
-    pub fn solve(&mut self) {
-        todo!()
+    fn apply_constraint(&mut self, val: u8, idx: usize) -> Result<(), ConstraintError> {
+        println!("applying constraint {val} at index {idx}");
+        let inds = self.constraints.get_constrained_inds(idx);
+
+        for ind in inds {
+            let cell = self
+                .cells
+                .get_mut(*ind)
+                .expect("ind should always be valid");
+
+            if !cell.deny(val) {
+                // this is the problem, check function
+                return Err(ConstraintError::Conflict(
+                    *ind,
+                    cell.determined_value().expect("should be determined"),
+                ));
+            }
+        }
+
+        Ok(())
     }
 
-    fn propagate_constraints(&mut self) {
-        todo!()
+    pub fn solve(&mut self) -> Result<(), String> {
+        self.propagate_constraints().map_err(|e| e.to_string())?;
+
+        Ok(())
     }
 
-    fn find_fully_constrained_cells(&self) -> Vec<&GridCell> {
-        self.cells.iter().filter(|&x| x.entropy() == 1).collect()
+    fn propagate_constraints(&mut self) -> Result<(), ConstraintError> {
+        while let Some(index) = self.find_fully_constrained_ind() {
+            println!("{index}");
+
+            let val = self
+                .cells
+                .get(index)
+                .expect("should be valid")
+                .determined_value()
+                .expect("should be determined");
+            self.apply_constraint(val, index)?;
+        }
+
+        Ok(())
+    }
+
+    fn find_fully_constrained_ind(&self) -> Option<usize> {
+        self.cells.iter().position(|x| x.entropy() == 1)
     }
 }
 
@@ -88,11 +137,20 @@ impl GridCell {
     }
 
     fn deny(&mut self, n: u8) -> bool {
+        // this logic is wrong, needs to be checking if this is the last element
         self.state.remove(&n)
     }
 
     fn entropy(&self) -> u8 {
         self.state.len() as u8
+    }
+
+    fn determined_value(&self) -> Option<u8> {
+        if self.state.len() == 1 {
+            Some(*self.state.iter().next().unwrap())
+        } else {
+            None
+        }
     }
 }
 
@@ -210,4 +268,20 @@ mod test {
         assert_eq!(*iter.next().unwrap(), GridCell::new_collapsed(7));
         assert_eq!(*iter.next().unwrap(), GridCell::new());
     }
+
+    #[test]
+    fn can_solve() {
+        let mut state = State::from(
+            "301086504046521070500000001400800002080347900009050038004090200008734090007208103",
+        );
+
+        println!("{}", state.total_entropy());
+
+        if let Err(e) = state.solve() {
+            println!("{e}");
+        }
+
+        println!("{}", state.total_entropy());
+    }
+
 }
