@@ -65,8 +65,8 @@ impl State {
         out.into_iter()
     }
 
-    fn apply_constraint(&mut self, val: u8, idx: usize) -> Result<(), ConstraintError> {
-        println!("applying constraint {val} at index {idx}");
+    fn apply_constraints(&mut self, val: u8, idx: usize) -> Result<(), ConstraintError> {
+        // println!("applying constraint {val} from cell at index {idx}");
         let inds = self.constraints.get_constrained_inds(idx);
 
         for ind in inds {
@@ -76,7 +76,6 @@ impl State {
                 .expect("ind should always be valid");
 
             if !cell.deny(val) {
-                // this is the problem, check function
                 return Err(ConstraintError::Conflict(
                     *ind,
                     cell.determined_value().expect("should be determined"),
@@ -94,8 +93,10 @@ impl State {
     }
 
     fn propagate_constraints(&mut self) -> Result<(), ConstraintError> {
-        while let Some(index) = self.find_fully_constrained_ind() {
-            println!("{index}");
+        let mut inds = self.find_fully_constrained_inds().into_iter();
+
+        while let Some(index) = inds.next() {
+            // println!("{index}");
 
             let val = self
                 .cells
@@ -103,14 +104,31 @@ impl State {
                 .expect("should be valid")
                 .determined_value()
                 .expect("should be determined");
-            self.apply_constraint(val, index)?;
+            self.apply_constraints(val, index)?;
         }
 
         Ok(())
     }
 
-    fn find_fully_constrained_ind(&self) -> Option<usize> {
-        self.cells.iter().position(|x| x.entropy() == 1)
+    fn find_fully_constrained_inds(&self) -> Vec<usize> {
+        self.cells
+            .iter()
+            .enumerate()
+            .filter(|(i, c)| c.entropy() == 1)
+            .map(|(i, _)| i)
+            .collect()
+    }
+}
+
+impl Display for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let display: String = self
+            .cells
+            .iter()
+            .map(|c| c.determined_value().unwrap_or(0).to_string())
+            .collect();
+
+        write!(f, "{}", display)
     }
 }
 
@@ -137,8 +155,15 @@ impl GridCell {
     }
 
     fn deny(&mut self, n: u8) -> bool {
-        // this logic is wrong, needs to be checking if this is the last element
-        self.state.remove(&n)
+        if self.state.len() == 1 {
+            if let Some(_) = self.state.get(&n) {
+                return false;
+            }
+            return true;
+        } else {
+            self.state.remove(&n);
+            return true;
+        }
     }
 
     fn entropy(&self) -> u8 {
@@ -282,6 +307,6 @@ mod test {
         }
 
         println!("{}", state.total_entropy());
+        println!("{state}");
     }
-
 }
