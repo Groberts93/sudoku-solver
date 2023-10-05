@@ -1,6 +1,7 @@
 use crate::constraints::Constraints;
-use anyhow::{anyhow, Result};
-use std::{collections::HashSet, error::Error, fmt::Display};
+use anyhow::Result;
+use log::info;
+use std::{collections::HashSet, fmt::Display};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -35,36 +36,6 @@ impl From<&str> for State {
 }
 
 impl State {
-    fn total_entropy(&self) -> u32 {
-        self.cells.iter().map(|x| x.entropy() as u32).sum()
-    }
-
-    fn iter_row(&self, row: usize) -> impl Iterator<Item = &GridCell> {
-        self.cells.iter().skip(row * 9).take(9)
-    }
-
-    fn iter_col(&self, col: usize) -> impl Iterator<Item = &GridCell> {
-        self.cells.iter().skip(col).step_by(9)
-    }
-
-    fn iter_block(&self, block: usize) -> impl Iterator<Item = &GridCell> {
-        let (row_skip, column_skip) = (block / 3, block % 3);
-
-        let mut inds = vec![];
-        let mut out = vec![];
-        let mut start = row_skip * 3 * 9 + column_skip * 3;
-
-        for _ in 0..3 {
-            for ii in start..start + 3 {
-                inds.push(ii);
-                out.push(self.cells.get(ii).unwrap());
-            }
-            start = start + 9;
-        }
-
-        out.into_iter()
-    }
-
     fn apply_constraints(&mut self, val: u8, idx: usize) -> Result<(), ConstraintError> {
         // println!("applying constraint {val} from cell at index {idx}");
         let inds = self.constraints.get_constrained_inds(idx);
@@ -93,18 +64,36 @@ impl State {
     }
 
     fn propagate_constraints(&mut self) -> Result<(), ConstraintError> {
-        let mut inds = self.find_fully_constrained_inds().into_iter();
+        let mut applied_inds: HashSet<usize> = HashSet::new();
+        let mut iteration = 0;
 
-        while let Some(index) = inds.next() {
-            // println!("{index}");
+        while applied_inds.len() != 81 {
+            let inds: Vec<usize> = self
+                .find_fully_constrained_inds()
+                .into_iter()
+                .filter(|x| !applied_inds.contains(x))
+                .collect();
+            let mut inds = inds.into_iter();
 
-            let val = self
-                .cells
-                .get(index)
-                .expect("should be valid")
-                .determined_value()
-                .expect("should be determined");
-            self.apply_constraints(val, index)?;
+            info!(
+                "beginning iteration {}, entropy: {}, applied: {}",
+                iteration,
+                self.total_entropy(),
+                applied_inds.len()
+            );
+
+            while let Some(index) = inds.next() {
+                let val = self
+                    .cells
+                    .get(index)
+                    .expect("should be valid")
+                    .determined_value()
+                    .expect("should be determined");
+                self.apply_constraints(val, index)?;
+
+                applied_inds.insert(index);
+            }
+            iteration += 1;
         }
 
         Ok(())
@@ -114,9 +103,13 @@ impl State {
         self.cells
             .iter()
             .enumerate()
-            .filter(|(i, c)| c.entropy() == 1)
+            .filter(|(_, c)| c.entropy() == 1)
             .map(|(i, _)| i)
             .collect()
+    }
+
+    fn total_entropy(&self) -> u32 {
+        self.cells.iter().map(|x| x.entropy() as u32).sum()
     }
 }
 
@@ -150,6 +143,7 @@ impl GridCell {
         }
     }
 
+    #[allow(dead_code)]
     fn allow(&mut self, n: u8) -> bool {
         self.state.insert(n)
     }
@@ -244,69 +238,54 @@ mod test {
     }
 
     #[test]
-    fn can_iter_row() {
-        let state = State::from(
-            "301086504046521070500000001400800002080347900009050038004090200008734090007208103",
-        );
-        let mut iter = state.iter_row(8);
-        // for _ in 0..=8 {
-        //     println!("{}", iter.next().unwrap());
-        // }
-    }
-
-    #[test]
-    fn can_iter_col() {
-        let state = State::from(
-            "301086504046521070500000001400800002080347900009050038004090200008734090007208103",
-        );
-        let mut iter = state.iter_col(1);
-        for _ in 0..=8 {
-            // println!("{}", iter.next().unwrap());
-        }
-    }
-
-    #[test]
-    fn can_iter_block() {
-        //     "
-        //     301 086 504
-        //     046 521 070
-        //     500 000 001
-
-        //     400 800 002
-        //     080 347 900
-        //     009 050 038
-
-        //     004 090 200
-        //     008 734 090
-        //     007 208 103",
-
-        let state = State::from(
-            "301086504046521070500000001400800002080347900009050038004090200008734090007208103",
-        );
-
-        let mut iter = state.iter_block(2);
-
-        assert_eq!(*iter.next().unwrap(), GridCell::new_collapsed(5));
-        assert_eq!(*iter.next().unwrap(), GridCell::new());
-        assert_eq!(*iter.next().unwrap(), GridCell::new_collapsed(4));
-        assert_eq!(*iter.next().unwrap(), GridCell::new());
-        assert_eq!(*iter.next().unwrap(), GridCell::new_collapsed(7));
-        assert_eq!(*iter.next().unwrap(), GridCell::new());
-    }
-
-    #[test]
     fn can_solve() {
+        // case 1: valid
         let mut state = State::from(
             "301086504046521070500000001400800002080347900009050038004090200008734090007208103",
         );
 
-        println!("{}", state.total_entropy());
+        assert_eq!(state.solve(), Ok(()));
+        assert_eq!(
+            format!("{state}"),
+            "371986524846521379592473861463819752285347916719652438634195287128734695957268143"
+                .to_string()
+        );
 
-        if let Err(e) = state.solve() {
-            println!("{e}");
-        }
+        // case 2: valid
+        let mut state = State::from(
+            "000030007480960501063570820009610203350097006000005094000000005804706910001040070",
+        );
 
-        println!("{}", state.total_entropy());
-        println!("{state}");
+        assert_eq!(state.solve(), Ok(()));
+        assert_eq!(
+            format!("{state}"),
+            "925831467487962531163574829749618253352497186618325794276189345834756912591243678"
+                .to_string()
+        );
+
+        // case 3: invalid, edited case 2
+        let mut state = State::from(
+            "000040007480960501063570820009610203350097006000005094000000005804706910001040070",
+        );
+
+        assert_eq!(
+            state.solve(),
+            Err("cell at index 76 is already fully constrained as 4".to_string())
+        );
+    }
+
+    #[test]
+    fn can_find_constrained_inds() {
+        let state = State::from(
+            "301086504046521070500000001400800002080347900009050038004090200008734090007208103",
+        );
+
+        assert_eq!(
+            state.find_fully_constrained_inds(),
+            vec![
+                0, 2, 4, 5, 6, 8, 10, 11, 12, 13, 14, 16, 18, 26, 27, 30, 35, 37, 39, 40, 41, 42,
+                47, 49, 52, 53, 56, 58, 60, 65, 66, 67, 68, 70, 74, 75, 77, 78, 80
+            ]
+        );
     }
 }
