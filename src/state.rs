@@ -37,7 +37,6 @@ impl From<&str> for State {
 
 impl State {
     fn apply_constraints(&mut self, val: u8, idx: usize) -> Result<(), ConstraintError> {
-        // println!("applying constraint {val} from cell at index {idx}");
         let inds = self.constraints.get_constrained_inds(idx);
 
         for ind in inds {
