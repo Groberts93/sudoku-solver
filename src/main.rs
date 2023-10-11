@@ -1,13 +1,22 @@
-use sudoku_solver::state::State;
+use clap::Parser;
+
+use log::LevelFilter;
+use sudoku_solver::{self, Config};
+
+#[derive(Parser, Debug)]
+struct Cli {
+    #[arg(short, long)]
+    puzzle: String,
+
+    #[arg(short, long, default_value = "warn")]
+    log: LevelFilter,
+}
 
 fn main() {
-    env_logger::init();
-    let mut puzzle = State::from(
-        "301086504046521070500000001400800002080347900009050038004090200008734090007208103",
-    );
+    let cli = Cli::parse();
 
-    match puzzle.solve() {
-        Ok(_) => println!("solution: {puzzle}"),
-        Err(e) => println!("{e}"),
-    }
+    env_logger::Builder::new().filter_level(cli.log).init();
+    let config = Config::from(cli.puzzle);
+
+    sudoku_solver::run(config);
 }
